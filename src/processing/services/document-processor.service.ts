@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { ConfigService } from "@nestjs/config";
 import { firstValueFrom } from "rxjs";
+import { Job } from "bull";
 import {
   DocumentProcessingJob,
   ProcessingResult,
@@ -17,7 +18,10 @@ export class DocumentProcessorService {
     private readonly configService: ConfigService
   ) {}
 
-  async processDocument(job: DocumentProcessingJob): Promise<ProcessingResult> {
+  async processDocument(
+    job: DocumentProcessingJob,
+    bullJob?: Job<DocumentProcessingJob>
+  ): Promise<ProcessingResult> {
     const startTime = Date.now();
     const result: ProcessingResult = {
       documentId: job.documentId,
@@ -31,41 +35,76 @@ export class DocumentProcessorService {
 
       // Step 1: Extract text if enabled
       if (job.config.extractText) {
-        await this.updateProgress(job.documentId, 10, "Extracting text...");
+        await this.updateProgress(
+          job.documentId,
+          10,
+          "Extracting text...",
+          bullJob
+        );
         result.extractedText = await this.extractText(job);
       }
 
       // Step 2: Perform OCR if enabled
       if (job.config.performOCR) {
-        await this.updateProgress(job.documentId, 30, "Performing OCR...");
+        await this.updateProgress(
+          job.documentId,
+          30,
+          "Performing OCR...",
+          bullJob
+        );
         result.ocrText = await this.performOCR(job);
       }
 
       // Step 3: Extract keywords if enabled
       if (job.config.extractKeywords) {
-        await this.updateProgress(job.documentId, 50, "Extracting keywords...");
+        await this.updateProgress(
+          job.documentId,
+          50,
+          "Extracting keywords...",
+          bullJob
+        );
         result.keywords = await this.extractKeywords(job, result.extractedText);
       }
 
       // Step 4: Generate summary if enabled
       if (job.config.generateSummary) {
-        await this.updateProgress(job.documentId, 70, "Generating summary...");
+        await this.updateProgress(
+          job.documentId,
+          70,
+          "Generating summary...",
+          bullJob
+        );
         result.summary = await this.generateSummary(job, result.extractedText);
       }
 
       // Step 5: Detect language if enabled
       if (job.config.detectLanguage) {
-        await this.updateProgress(job.documentId, 85, "Detecting language...");
+        await this.updateProgress(
+          job.documentId,
+          85,
+          "Detecting language...",
+          bullJob
+        );
         result.language = await this.detectLanguage(result.extractedText);
       }
 
       // Step 6: Enable search indexing if enabled
       if (job.config.enableSearch) {
-        await this.updateProgress(job.documentId, 95, "Indexing for search...");
+        await this.updateProgress(
+          job.documentId,
+          95,
+          "Indexing for search...",
+          bullJob
+        );
         await this.indexForSearch(job, result);
       }
 
-      await this.updateProgress(job.documentId, 100, "Processing completed");
+      await this.updateProgress(
+        job.documentId,
+        100,
+        "Processing completed",
+        bullJob
+      );
 
       result.success = true;
       result.processingTime = Date.now() - startTime;
@@ -195,12 +234,19 @@ export class DocumentProcessorService {
   private async updateProgress(
     documentId: string,
     progress: number,
-    step: string
+    step: string,
+    bullJob?: Job<DocumentProcessingJob>
   ): Promise<void> {
     this.logger.log(`Document ${documentId}: ${progress}% - ${step}`);
 
-    // In a real implementation, this would update the job progress in Redis/Queue
-    // For now, we'll just log the progress
+    // Update Bull job progress if available
+    if (bullJob) {
+      try {
+        await bullJob.progress(progress);
+      } catch (error) {
+        this.logger.warn(`Failed to update job progress: ${error.message}`);
+      }
+    }
   }
 
   private async sendProcessingCallback(
