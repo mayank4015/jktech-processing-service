@@ -1,20 +1,18 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { ProcessingModule } from './processing/processing.module';
-import { QueueModule } from './queue/queue.module';
-import { WebhookModule } from './webhook/webhook.module';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { ProcessingModule } from "./processing/processing.module";
+import { HealthModule } from "./health/health.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ".env",
     }),
     ProcessingModule,
-    QueueModule,
-    WebhookModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

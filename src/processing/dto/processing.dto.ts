@@ -1,73 +1,62 @@
-import { IsString, IsUUID, IsOptional, IsObject, IsEnum, IsNumber, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
-
-export enum ProcessingType {
-  TEXT_EXTRACTION = 'text_extraction',
-  OCR = 'ocr',
-  ANALYSIS = 'analysis',
-  FULL_PROCESSING = 'full_processing',
+export interface ProcessingConfig {
+  extractText: boolean;
+  performOCR: boolean;
+  extractKeywords: boolean;
+  generateSummary: boolean;
+  detectLanguage: boolean;
+  enableSearch: boolean;
+  priority: "low" | "normal" | "high";
 }
 
-export class IngestionConfigDto {
-  @IsEnum(ProcessingType)
-  @IsOptional()
-  processingType?: ProcessingType = ProcessingType.FULL_PROCESSING;
-
-  @IsOptional()
-  @IsObject()
-  ocrSettings?: {
-    language?: string;
-    accuracy?: 'fast' | 'balanced' | 'accurate';
-  };
-
-  @IsOptional()
-  @IsObject()
-  analysisSettings?: {
-    extractEntities?: boolean;
-    extractTopics?: boolean;
-    sentimentAnalysis?: boolean;
-  };
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(10)
-  priority?: number = 5;
-
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, any>;
-}
-
-export class TriggerIngestionDto {
-  @IsUUID()
+export interface DocumentProcessingJob {
   documentId: string;
-
-  @IsUUID()
-  ingestionId: string;
-
-  @IsOptional()
-  @Type(() => IngestionConfigDto)
-  config?: IngestionConfigDto;
+  userId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  storagePath: string;
+  config: ProcessingConfig;
+  metadata: DocumentMetadata;
 }
 
-export class IngestionStatusDto {
-  @IsUUID()
-  ingestionId: string;
+export interface DocumentMetadata {
+  title?: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  uploadedAt: Date;
+  [key: string]: any;
+}
 
-  @IsEnum(['queued', 'processing', 'completed', 'failed'])
-  status: string;
+export interface ProcessingResult {
+  documentId: string;
+  success: boolean;
+  extractedText?: string;
+  ocrText?: string;
+  keywords?: string[];
+  summary?: string;
+  language?: string;
+  metadata?: Record<string, any>;
+  processingTime: number;
+  errors?: string[];
+}
 
-  @IsNumber()
-  @Min(0)
-  @Max(100)
+export interface ProcessingProgress {
+  jobId: string;
+  documentId: string;
+  status: ProcessingStatus;
   progress: number;
-
-  @IsOptional()
-  @IsString()
+  currentStep: string;
+  estimatedTimeRemaining?: number;
+  startedAt?: Date;
+  completedAt?: Date;
   error?: string;
+}
 
-  @IsOptional()
-  @IsObject()
-  result?: any;
+export enum ProcessingStatus {
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
 }
